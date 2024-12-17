@@ -2,71 +2,68 @@
 """
 Created on Tue Jul 23 12:09:08 2019
 
-trainer
+trainer class for training a model
 
 @author: tadahaya
 """
 import torch
 
-from .utils import save_experiment, save_checkpoint, plot_progress
-
-# configの例
-# config = {
-#     "patch_size": 4, # Input image size: 32x32 -> 8x8 patches
-#     "hidden_size": 48,
-#     "num_hidden_layers": 4,
-#     "num_attention_heads": 4,
-#     "intermediate_size": 4 * 48, # 4 * hidden_size
-#     "hidden_dropout_prob": 0.0,
-#     "attention_probs_dropout_prob": 0.0, 
-#     "initializer_range": 0.02, 
-#     "image_size": 32,
-#     "num_classes": 10, # num_classes of CIFAR10
-#     "num_channels": 3,
-#     "qkv_bias": True,
-#     "use_faster_attention": True,
-# }
-
+from .utils import save_checkpoint
 
 class Trainer:
-    def __init__(self, config, model, optimizer, loss_fn, exp_name, device):
-        self.config = config
+    """
+    trainer class for training a model
+    
+    """
+    def __init__(self, model, optimizer, criterion, exp_name, device, scheduler=None):
+        """
+        Args:
+            model (nn.Module): model to be trained
+            optimizer (torch.optim): optimizer
+            criterion (torch.nn): loss function
+            exp_name (str): experiment name
+            device (str): device to be used for training
+            scheduler (torch.optim.lr_scheduler, optional): learning rate scheduler
+        """
         self.model = model.to(device)
         self.optimizer = optimizer
-        self.loss_fn = loss_fn
+        self.criterion = criterion
         self.exp_name = exp_name
         self.device = device
+        self.scheduler = scheduler
 
 
-    def train(self, trainloader, testloader, classes:dict=None, save_model_evry_n_epochs=0):
+    def train(self, trainloader, testloader, num_epochs, save_model_every_n_epochs=0):
         """
         train the model for the specified number of epochs.
+
+        Args:
+            trainloader (torch.utils.data.DataLoader): training data loader
+            testloader (torch.utils.data.DataLoader): test data loader
+            num_epochs (int): number of epochs to train the model
+            save_model_every_n_epochs (int): save the model every n epochs
         
         """
-        # configの確認
-        config = self.config
-        assert config["hidden_size"] % config["num_attention_heads"] == 0
-        assert config["intermediate_size"] == 4 * config["hidden_size"]
-        assert config["image_size"] % config["patch_size"] == 0
         # keep track of the losses and accuracies
         train_losses, test_losses, accuracies = [], [], []
         # training
-        for i in range(config["epochs"]):
-            train_loss = self.train_epoch(trainloader)
-            accuracy, test_loss = self.evaluate(testloader)
-            train_losses.append(train_loss)
-            test_losses.append(test_loss)
-            accuracies.append(accuracy)
+        for i in range(num_epochs):
+            train_loss = self.train_epoch(trainloader) # 1 epoch分のloss
+            accuracy, test_loss = self.evaluate(testloader) # 1 epoch学習後のtestでのaccuracy, loss
+            train_losses.append(train_loss) # train lossの記録
+            test_losses.append(test_loss) # test lossの記録
+            accuracies.append(accuracy) # accuracyの記録
             print(
                 f"Epoch: {i + 1}, Train_loss: {train_loss:.4f}, Test loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}"
                 )
-            if save_model_evry_n_epochs > 0 and (i + 1) % save_model_evry_n_epochs == 0 and i + 1 != config["epochs"]:
+            # schedulerがあればstep
+            if self.scheduler is not None:
+                self.scheduler.step()
+            # モデルの保存処理
+            if save_model_every_n_epochs > 0 and (i + 1) % save_model_every_n_epochs == 0 and i + 1 != num_epochs:
                 print("> Save checkpoint at epoch", i + 1)
                 save_checkpoint(self.exp_name, self.model, i + 1)
-        # save the experiment
-        save_experiment(
-            self.exp_name, config, self.model, train_losses, test_losses, accuracies, classes
-            )
+        return train_losses, test_losses, accuracies
 
 
     def train_epoch(self, trainloader):
@@ -79,15 +76,15 @@ class Trainer:
             # 勾配を初期化
             self.optimizer.zero_grad()
             # forward
-            output = self.model(data)[0] # attentionもNoneで返るので
+            output = self.model(data)
             # loss計算
-            loss = self.loss_fn(output, label)
+            loss = self.criterion(output, label)
             # backpropagation
             loss.backward()
             # パラメータ更新
             self.optimizer.step()
-            total_loss += loss.item() * len(data) # loss_fnがbatch内での平均の値になっている模様
-        return total_loss / len(trainloader.dataset) # 全データセットのうちのいくらかという比率になっている
+            total_loss += loss.item() * len(data) # batch内のlossの合計, 後でdataset内の平均lossに変換する
+        return total_loss / len(trainloader.dataset) # dataset内の平均lossを返す
     
 
     @torch.no_grad()

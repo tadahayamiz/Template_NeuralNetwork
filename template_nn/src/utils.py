@@ -6,31 +6,95 @@ utils
 
 @author: tadahaya
 """
-import json, os, math
+import json, os, time
 import matplotlib.pyplot as plt
+import logging, datetime
+import random
 import numpy as np
 import torch
-from torch.nn import functional as F
-import torchvision
-import torchvision.transforms as transforms
 
-from .models import VitForClassification
+from .models import MyNet # SHOULD BE CHANGED TO YOUR MODEL!!! Necessary for loading experiments
 
+# Fix random seed for reproducibility
+def fix_seed(seed:int=222, fix_gpu:bool=False):
+    """
+    Fix random seed for reproducibility across Python, NumPy, and PyTorch.
+
+    Args:
+        seed (int): Seed value for random number generators. Default is 42.
+        fix_gpu (bool): If True, GPU-related randomness is also fixed. 
+                        This may reduce performance but ensures reproducibility.
+
+    Returns:
+        None
+    """
+    # Fix seed for Python's built-in random module
+    random.seed(seed)
+    # Fix seed for NumPy
+    np.random.seed(seed)
+    # Fix seed for PyTorch on CPU
+    torch.manual_seed(seed)
+    # Fix seed for PyTorch on GPU if GPU is available and requested
+    if fix_gpu and torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)  # For multi-GPU setup
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+
+def to_logger(
+        logger: logging.Logger, name:str='', obj=None,
+        skip_keys=None, skip_hidden:bool=True
+        ):
+    """
+    Log attributes of an object using the provided logger.
+
+    Args:
+        logger (logging.Logger): Logger instance.
+        name (str): Name or header to log before object attributes.
+        obj: Object whose attributes will be logged.
+        skip_keys (set): Set of keys to skip when logging attributes.
+        skip_hidden (bool): If True, skip attributes starting with '_'.
+
+    """
+    if skip_keys is None:
+        skip_keys = set()
+    logger.info(name)
+    if obj is not None:
+        for k, v in vars(obj).items():
+            if k not in skip_keys:
+                if skip_hidden and k.startswith('_'):
+                    continue
+                logger.info('  {0}: {1}'.format(k, v))
+
+
+# Save and load experiments
 def save_experiment(
         experiment_name, config, model, train_losses, test_losses,
         accuracies, classes, base_dir=""
         ):
-    """ save the experiment: config, model, metrics, and progress plot """
+    """
+    save the experiment: config, model, metrics, and progress plot
+    
+    Args:
+        experiment_name (str): name of the experiment
+        config (dict): configuration dictionary
+        model (nn.Module): model to be saved
+        train_losses (list): training losses
+        test_losses (list): test losses
+        accuracies (list): accuracies
+        classes (dict): dictionary of class names
+        base_dir (str): base directory to save the experiment
+    
+    """
     if len(base_dir) == 0:
         base_dir = os.path.dirname(config["config_path"])
     outdir = os.path.join(base_dir, experiment_name)
     os.makedirs(outdir, exist_ok=True)
-
     # save config
     configfile = os.path.join(outdir, 'config.json')
     with open(configfile, 'w') as f:
         json.dump(config, f, sort_keys=True, indent=4)
-    
     # save metrics
     jsonfile = os.path.join(outdir, 'metrics.json')
     with open(jsonfile, 'w') as f:
@@ -41,21 +105,43 @@ def save_experiment(
             'classes': classes,
         }
         json.dump(data, f, sort_keys=True, indent=4)
-
     # plot progress
     plot_progress(
         experiment_name, train_losses, test_losses, config["epochs"], base_dir=base_dir
         )
-
     # save the model
     save_checkpoint(experiment_name, model, "final", base_dir=base_dir)
 
 
 def save_checkpoint(experiment_name, model, epoch, base_dir="experiments"):
+    """
+    save the model checkpoint
+
+    Args:
+        experiment_name (str): name of the experiment
+        model (nn.Module): model to be saved
+        epoch (int): epoch number
+        base_dir (str): base directory to save the experiment
+
+    """
     outdir = os.path.join(base_dir, experiment_name)
     os.makedirs(outdir, exist_ok=True)
     cpfile = os.path.join(outdir, f"model_{epoch}.pt")
     torch.save(model.state_dict(), cpfile)
+
+
+def save_component_list(model, optimizer, criterion, scheduler=None):
+    """
+    save the components of the model
+    
+    """
+    components = {
+    "model": model.__class__.__name__,
+    "criterion": criterion.__class__.__name__,
+    "optimizer": optimizer.__class__.__name__,
+    "scheduler": scheduler.__class__.__name__,
+    }
+    return components
 
 
 def load_experiments(
@@ -75,7 +161,7 @@ def load_experiments(
     accuracies = data["accuracies"]
     classes = data["classes"]
     # load model
-    model = VitForClassification(config)
+    model = MyNet(config) # SHOULD BE CHANGED TO YOUR MODEL!!!
     cpfile = os.path.join(outdir, checkpoint_name)
     model.load_state_dict(torch.load(cpfile)) # checkpointを読み込んでから
     return config, model, train_losses, test_losses, accuracies, classes
@@ -125,181 +211,77 @@ def visualize_images(mydataset, indices:list=[], output:str="", nrow:int=3, ncol
     plt.tight_layout()
     if len(output) > 0:
         plt.savefig(output, dpi=300, bbox_inches='tight')
+    plt.show()
 
 
-@torch.no_grad()
-def visualize_attention(
-    model, mydataset, config, indices:list=[], output:str="", 
-    nrow:int=2, ncol:int=3, device="cuda"
-    ):
+# Timer related functions
+def timer(start_time):
+    """ Measure the elapsed time """
+    elapsed_time = time.time() - start_time
+    elapsed_hours = int(elapsed_time // 3600)  # hour
+    elapsed_minutes = int((elapsed_time % 3600) // 60)  # min
+    elapsed_seconds = int(elapsed_time % 60)  # sec
+    res = f"{elapsed_hours:02}:{elapsed_minutes:02}:{elapsed_seconds:02}"
+    print(f"Elapsed Time: {res}")
+    return res
+
+
+# Logger related functions
+def init_logger(
+        module_name:str, outdir:str='', tag:str='',
+        level_console:str='info',level_file:str='info'
+        ):
     """
-    visualize the attention of the images in the given dataset
-    
+    Initialize a logger with console and file handlers.
+
+    Args:
+        module_name (str): Name of the logger (e.g., module or script name).
+        outdir (str): Directory to save the log file. Default is current directory.
+        tag (str): Tag to identify the log file. Default is current timestamp.
+        level_console (str): Logging level for console output. Default is 'info'.
+        level_file (str): Logging level for file output. Default is 'info'.
+
+    Returns:
+        logging.Logger: Configured logger instance.
+
     """
-    model.eval()
-    # indicesの準備
-    assert len(indices) <= len(mydataset), "!! indices should be less than the total number of images !!"
-    num_vis = np.min((len(mydataset), nrow * ncol))
-    if len(indices) == 0:
-        indices = torch.randperm(len(mydataset))[:num_vis]
+    # Define logging levels
+    level_dic = {
+        'critical': logging.CRITICAL,
+        'error': logging.ERROR,
+        'warning': logging.WARNING,
+        'info': logging.INFO,
+        'debug': logging.DEBUG,
+        'notset': logging.NOTSET
+    }
+    # Set default tag to timestamp if not provided
+    if not tag:
+        tag = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    # Ensure outdir exists if specified
+    if outdir:
+        os.makedirs(outdir, exist_ok=True)
+        logfile = os.path.join(outdir, f'log_{tag}.txt')
     else:
-        num_vis = len(indices)
-    classes = mydataset.classes
-    raw_images = [np.asarray(mydataset[i][0]) for i in indices]
-    labels = [mydataset[i][1] for i in indices]
-    # image -> tensor
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Resize((config["image_size"], config["image_size"])),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ]
-    )
-    images = torch.stack([transform(image) for image in raw_images])
-    # imageをdeviceに載せる
-    images = images.to(device)
-    model = model.to(device)
-    # 全ブロックのattention mapを最終ブロックから取得 (appendされてる)
-    logits, attention_maps = model(images, output_attentions=True)
-    ## att_maps = [(batch, head, token, token), ...]
-    # predictionを取得
-    predictions = torch.argmax(logits, dim=1)
-    # attention blockをheadの軸でconcatする
-    attention_maps = torch.cat(attention_maps, dim=1)
-    # CLS tokenのものだけ抽出
-    attention_maps = attention_maps[:, :, 0, 1:]
-    # -> (batch, block, token - 1) = (batch, block, patch)
-    ## cls tokenは先頭なので先頭以外をとってきている
-    # 全blockについてCLStokenのattention mapsの平均をとる
-    attention_maps = attention_maps.mean(dim=1)
-    # -> (batch, patch)
-    # attention mapをsquareへ変換
-    num_patches = attention_maps.size(-1)
-    size = int(math.sqrt(num_patches))
-    attention_maps = attention_maps.view(-1, size, size)
-    # attention mapを元の画像サイズに戻す
-    attention_maps = attention_maps.unsqueeze(1) # channelをunsqueezeしてから戻す
-    attention_maps = F.interpolate(
-        attention_maps, size=(config["image_size"], config["image_size"]),
-        mode="bilinear", align_corners=False
-        )
-    attention_maps = attention_maps.squeeze(1)
-    # 描画
-    fig = plt.figure(figsize=(20, 10))
-    # 2つのimageを用意
-    mask = np.concatenate(
-        [np.ones((config["image_size"], config["image_size"])), np.zeros((config["image_size"], config["image_size"]))],
-        axis=1
-        )
-    for i in range(num_vis):
-        ax = fig.add_subplot(nrow, ncol, i+1, xticks=[], yticks=[])
-        img = np.concatenate((raw_images[i], raw_images[i]), axis=1)
-        ax.imshow(img)
-        # 左側のimageについてattention mapをmask
-        extended_attention_map = np.concatenate(
-            (np.zeros((config["image_size"], config["image_size"])), attention_maps[i].cpu()), axis=1
-            )
-        extended_attention_map = np.ma.masked_where(mask==1, extended_attention_map)
-        ax.imshow(extended_attention_map, alpha=0.5, cmap='jet')
-        # ground truthとpredictedを載せる
-        gt = classes[labels[i]]
-        pred = classes[predictions[i]]
-        ax.set_title(f"gt: {gt} / pred: {pred}", color=("green" if gt==pred else "tomato"))
-    if len(output) > 0:
-        plt.savefig(output, dpi=300, bbox_inches='tight')
-    plt.show()
-
-
-# for test CIFAR10 data
-def visualize_images_test(nrow:int=5, ncol:int=6):
-    trainset = torchvision.datasets.CIFAR10(
-        root="./data", train=True, download=True
-    )
-    classes = (
-        'plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck'
-        )
-    # randomに選択
-    indices = torch.randperm(len(trainset))[:nrow * ncol]
-    images = [np.asarray(trainset[i][0]) for i in indices]
-    labels = [trainset[i][1] for i in indices]
-    # 描画
-    fig = plt.figure()
-    for i in range(nrow * ncol):
-        ax = fig.add_subplot(ncol, nrow, i+1, xticks=[], yticks=[])
-        ax.imshow(images[i])
-        ax.set_title(classes[labels[i]])
-    
-
-@torch.no_grad()
-def visualize_attention_test(model, output=None, device="cuda"):
-    """
-    visualize the attention of the first 4 images
-    
-    """
-    model.eval()
-    # randomに選択
-    num_images = 30
-    testset = torchvision.datasets.CIFAR10(root="./data", train=False, download=True)
-    classes = (
-        'plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck'
-        )
-    indices = torch.randperm(len(testset))[:30]
-    raw_images = [np.asarray(testset[i][0]) for i in indices]
-    labels = [testset[i][1] for i in indices]
-    # image -> tensor
-    test_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Resize((32, 32)),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ]
-    )
-    images = torch.stack([test_transform(image) for image in raw_images])
-    # imageをdeviceに載せる
-    images = images.to(device)
-    model = model.to(device)
-    # 全ブロックのattention mapを最終ブロックから取得 (appendされてる)
-    logits, attention_maps = model(images, output_attentions=True)
-    ## att_maps = [(batch, head, token, token), ...]
-    # predictionを取得
-    predictions = torch.argmax(logits, dim=1)
-    # attention blockをheadの軸でconcatする
-    attention_maps = torch.cat(attention_maps, dim=1)
-    # CLS tokenのものだけ抽出
-    attention_maps = attention_maps[:, :, 0, 1:]
-    # -> (batch, block, token - 1) = (batch, block, patch)
-    ## cls tokenは先頭なので先頭以外をとってきている
-    # 全blockについてCLStokenのattention mapsの平均をとる
-    attention_maps = attention_maps.mean(dim=1)
-    # -> (batch, patch)
-    # attention mapをsquareへ変換
-    num_patches = attention_maps.size(-1)
-    size = int(math.sqrt(num_patches))
-    attention_maps = attention_maps.view(-1, size, size)
-    # attention mapを元の画像サイズに戻す
-    attention_maps = attention_maps.unsqueeze(1) # channelをunsqueezeしてから戻す
-    attention_maps = F.interpolate(
-        attention_maps, size=(32, 32), mode="bilinear", align_corners=False
-        )
-    attention_maps = attention_maps.squeeze(1)
-    # 描画
-    fig = plt.figure(figsize=(20, 10))
-    # 2つのimageを用意
-    mask = np.concatenate([np.ones((32, 32)), np.zeros((32, 32))], axis=1)
-    for i in range(num_images):
-        ax = fig.add_subplot(6, 5, i+1, xticks=[], yticks=[])
-        img = np.concatenate((raw_images[i], raw_images[i]), axis=1)
-        ax.imshow(img)
-        # 左側のimageについてattention mapをmask
-        extended_attention_map = np.concatenate(
-            (np.zeros((32, 32)), attention_maps[i].cpu()), axis=1
-            )
-        extended_attention_map = np.ma.masked_where(mask==1, extended_attention_map)
-        ax.imshow(extended_attention_map, alpha=0.5, cmap='jet')
-        # ground truthとpredictedを載せる
-        gt = classes[labels[i]]
-        pred = classes[predictions[i]]
-        ax.set_title(f"gt: {gt} / pred: {pred}", color=("green" if gt==pred else "red"))
-    if output is not None:
-        plt.savefig(output)
-    plt.show()
+        logfile = f'log_{tag}.txt'
+    # Create logger
+    logger = logging.getLogger(module_name)
+    logger.setLevel(logging.DEBUG)  # Capture all levels (fine-tuned in handlers)
+    # Avoid adding duplicate handlers
+    if not logger.handlers:
+        # File handler
+        fh = logging.FileHandler(logfile)
+        fh.setLevel(level_dic[level_file])
+        fh.setFormatter(logging.Formatter(
+            "[%(asctime)s] [%(levelname)s] %(message)s",
+            "%Y%m%d-%H%M%S"
+        ))
+        logger.addHandler(fh)
+        # Console handler
+        sh = logging.StreamHandler()
+        sh.setLevel(level_dic[level_console])
+        sh.setFormatter(logging.Formatter(
+            "[%(asctime)s] [%(levelname)s] %(message)s",
+            "%Y%m%d-%H%M%S"
+        ))
+        logger.addHandler(sh)
+    return logger

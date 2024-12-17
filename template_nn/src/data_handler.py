@@ -12,13 +12,14 @@ This script includes:
 @author: tadahaya
 """
 import numpy as np
-from typing import Tuple, Optional, List, Union
+from typing import Tuple, Optional, List
 
 import torch
 import torchvision.transforms as transforms
+from torch.utils.data import DataLoader, Dataset
 
 # frozen
-class MyDataset(torch.utils.data.Dataset):
+class MyDataset(Dataset):
     """
     Custom dataset implementation for supervised and unsupervised tasks.
 
@@ -29,7 +30,7 @@ class MyDataset(torch.utils.data.Dataset):
         transform (Optional[Union[transforms.Compose, List[callable]]]): 
                  A single transformation or a list of transformations applied to each sample.
     """
-    def __init__(self, data: np.ndarray, label: Optional[np.ndarray] = None, transform=None):
+    def __init__(self, data:np.ndarray, label:Optional[np.ndarray]=None, transform=None):
         if data is None:
             raise ValueError("`data` cannot be None. Please provide the input data.")
         if label is None:
@@ -74,7 +75,7 @@ class MyTransforms:
     def __init__(self) -> None:
         pass
 
-    def __call__(self, x: np.ndarray) -> torch.Tensor:
+    def __call__(self, x:np.ndarray) -> torch.Tensor:
         """
         Converts a numpy array to a PyTorch tensor.
         
@@ -87,7 +88,7 @@ class MyTransforms:
         return torch.from_numpy(x.astype(np.float32))
 
 
-def prep_dataset(data: np.ndarray, label: Optional[np.ndarray] = None, transform=None) -> MyDataset:
+def prep_dataset(data:np.ndarray, label:Optional[np.ndarray]=None, transform=None) -> MyDataset:
     """
     Prepares a PyTorch dataset from raw data and labels.
 
@@ -103,13 +104,44 @@ def prep_dataset(data: np.ndarray, label: Optional[np.ndarray] = None, transform
     return MyDataset(data, label, transform)
 
 
+def split_dataset(
+    full_dataset:Dataset, split_ratio:float=0.8, shuffle:bool=True,
+    transform:Tuple[Optional[List[callable]], Optional[List[callable]]]=(None, None),
+) -> Tuple[Dataset, Dataset]:
+    """
+    Splits a dataset into training and validation sets.
+
+    Args:
+        full_dataset (torch.utils.data.Dataset): Dataset instance.
+        split_ratio (float): Ratio of the dataset to use for training.
+        shuffle (bool): Whether to shuffle the data before splitting.
+
+    Returns:
+        Tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]: 
+        Training and validation datasets.
+    """
+    dataset_size = len(full_dataset)
+    indices = list(range(dataset_size))
+    split = int(np.floor(split_ratio * dataset_size))
+    if shuffle:
+        np.random.shuffle(indices)
+    train_indices, val_indices = indices[:split], indices[split:]
+    train_dataset = torch.utils.data.Subset(full_dataset, train_indices)
+    if transform[0] is not None:
+        train_dataset.transform = transform[0]
+    val_dataset = torch.utils.data.Subset(full_dataset, val_indices)
+    if transform[1] is not None:
+        val_dataset.transform = transform[1]
+    return train_dataset, val_dataset
+
+
 def prep_dataloader(
-    dataset: torch.utils.data.Dataset,
+    dataset: Dataset,
     batch_size: int,
     shuffle: bool = False,
     num_workers: int = 2,
     pin_memory: bool = True,
-) -> torch.utils.data.DataLoader:
+) -> DataLoader:
     """
     Prepares a PyTorch DataLoader for training or testing.
 
@@ -123,7 +155,7 @@ def prep_dataloader(
     Returns:
         torch.utils.data.DataLoader: Configured DataLoader instance.
     """
-    return torch.utils.data.DataLoader(
+    return DataLoader(
         dataset=dataset,
         batch_size=batch_size,
         shuffle=shuffle,
@@ -153,7 +185,7 @@ def prep_data(
     shuffle: Tuple[bool, bool] = (True, False),
     num_workers: int = 2,
     pin_memory: bool = True,
-) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+) -> Tuple[DataLoader, DataLoader]:
     """
     Prepares training and testing data loaders from raw data.
 
@@ -184,3 +216,31 @@ def prep_data(
         num_workers=num_workers, pin_memory=pin_memory
     )
     return train_loader, test_loader
+
+
+# general transformations
+def get_general_transforms() -> Tuple[List[transforms.Compose], List[transforms.Compose]]:
+    """
+    Returns a tuple of default transformations for training and testing data.
+
+    Returns:
+        Tuple[List[transforms.Compose], List[transforms.Compose]]: 
+        Default transformations for training and testing data.
+    """
+    train_transform = transforms.Compose(
+        [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(10),
+            transforms.RandomAffine(0, translate=(0.1, 0.1)),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ]
+        )
+    test_transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ]
+        )
+    return train_transform, test_transform

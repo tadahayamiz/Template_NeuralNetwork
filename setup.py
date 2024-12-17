@@ -10,7 +10,7 @@ with open('requirements.txt') as requirements_file:
 # Helper functions
 # Function to parse the filename and extract date and version
 def parse_note_file(filename):
-    match = re.match(r"note_(\d{6})_(\d{2})\.py", filename)
+    match = re.match(r"cli_(\d{6})_(\d{2})\.py", filename)
     if match:
         date = int(match.group(1))  # Extract date as an integer
         version = int(match.group(2))  # Extract version as an integer

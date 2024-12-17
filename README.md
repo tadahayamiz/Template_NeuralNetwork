@@ -6,7 +6,7 @@ This repository is under construction and will be officially released by [Mizuno
 Please contact tadahaya[at]gmail.com before publishing your paper using the contents of this repository.  
 
 ## Install
-- ``` pip install git+{URL OF THIS GITHUB REPOSITORY} ```  
+- ``` pip install git+{URL OF THIS GITHUB REPOSITORY}@{BRANCH NAME} ```  
 - In the development stage, it may be helpful to add ``` --force-reinstall ``` option  
 
 ## Organization
@@ -19,7 +19,8 @@ Please contact tadahaya[at]gmail.com before publishing your paper using the cont
     │                              e.g. generated with `pip freeze > requirements.txt`
     │
     ├── setup.py                <- Makes project pip installable (pip install -e .) so src can be imported.
-    │                              Note that entry points should be modified for CLI.
+    │                              Note that entry points should be modified for CLI
+    │                              otherwise the latest CLI file will be employed.
     │
     └── module                  <- Source code for use in this project.
         │

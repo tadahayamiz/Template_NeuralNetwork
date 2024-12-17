@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 
+ToDo
+- 具体的なノートに変更しておく, 241217
+
 @author: tadahaya
 """
 # path setting
