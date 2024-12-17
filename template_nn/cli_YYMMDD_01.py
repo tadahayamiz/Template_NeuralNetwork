@@ -147,7 +147,7 @@ def main():
             test_losses=test_loss, accuracies=accuracies, classes=None, base_dir=cfg["outdir"]
             )
         # 5. save config
-        components = utils.save_component_list(model, optimizer, criterion, scheduler)
+        components = utils.save_component_list(model, optimizer, criterion, cfg["device"], scheduler)
         cfg.update(components)
         elapsed_time = utils.timer(start) # for time stamp
         cfg["elapsed_time"] = elapsed_time

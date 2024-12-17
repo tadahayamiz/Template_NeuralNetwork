@@ -130,7 +130,7 @@ def save_checkpoint(experiment_name, model, epoch, base_dir="experiments"):
     torch.save(model.state_dict(), cpfile)
 
 
-def save_component_list(model, optimizer, criterion, scheduler=None):
+def save_component_list(model, optimizer, criterion, device, scheduler=None):
     """
     save the components of the model
     
@@ -139,6 +139,7 @@ def save_component_list(model, optimizer, criterion, scheduler=None):
     "model": model.__class__.__name__,
     "criterion": criterion.__class__.__name__,
     "optimizer": optimizer.__class__.__name__,
+    "device": device.__class__.__name__,
     "scheduler": scheduler.__class__.__name__,
     }
     return components
