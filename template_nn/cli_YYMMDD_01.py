@@ -144,9 +144,6 @@ def main():
         # 4. modify config
         components = utils.get_component_list(model, optimizer, criterion, cfg["device"], scheduler)
         cfg.update(components) # update config
-
-        print(cfg["device"])
-
         elapsed_time = utils.timer(start) # for time stamp
         cfg["elapsed_time"] = elapsed_time
         # 5. save experiment & config
@@ -154,6 +151,7 @@ def main():
             experiment_name=now, config=cfg, model=model, train_losses=train_loss,
             test_losses=test_loss, accuracies=accuracies, classes=None, base_dir=cfg["outdir"]
             )
+        print(">> Done training")
     else:
         # inference mode
         # データ読み込みをtestのみに変更などが必要
