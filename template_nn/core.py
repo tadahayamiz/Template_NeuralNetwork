@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 
+主に実行用のクラスを記述する
+
 @author: tadahaya
 """
 # packages installed in the current environment
