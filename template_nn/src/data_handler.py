@@ -129,6 +129,9 @@ def split_dataset(
     train_dataset = torch.utils.data.Subset(full_dataset, train_indices)
     if transform[0] is not None:
         train_dataset.transform = transform[0]
+
+        print("DEBUG")
+
     val_dataset = torch.utils.data.Subset(full_dataset, val_indices)
     if transform[1] is not None:
         val_dataset.transform = transform[1]
