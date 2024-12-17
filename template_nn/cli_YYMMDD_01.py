@@ -88,7 +88,7 @@ def prepare_model():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=cfg["lr"])
     scheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=cfg['num_epoch'], eta_min=0
+        optimizer, T_max=cfg['num_epochs'], eta_min=0
         )
     return model, criterion, optimizer, scheduler
 
