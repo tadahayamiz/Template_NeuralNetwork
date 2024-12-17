@@ -141,19 +141,19 @@ def main():
         model, train_loss, test_loss, accuracies = fit(
             model, train_loader, test_loader, criterion, optimizer, scheduler
             )
-        # 4. save results
-        utils.save_experiment(
-            experiment_name=now, config=cfg, model=model, train_losses=train_loss,
-            test_losses=test_loss, accuracies=accuracies, classes=None, base_dir=cfg["outdir"]
-            )
-        # 5. save config
-        components = utils.save_component_list(model, optimizer, criterion, cfg["device"], scheduler)
-        cfg.update(components)
+        # 4. modify config
+        components = utils.get_component_list(model, optimizer, criterion, cfg["device"], scheduler)
+        cfg.update(components) # update config
 
         print(cfg["device"])
 
         elapsed_time = utils.timer(start) # for time stamp
         cfg["elapsed_time"] = elapsed_time
+        # 5. save experiment & config
+        utils.save_experiment(
+            experiment_name=now, config=cfg, model=model, train_losses=train_loss,
+            test_losses=test_loss, accuracies=accuracies, classes=None, base_dir=cfg["outdir"]
+            )
     else:
         # inference mode
         # データ読み込みをtestのみに変更などが必要

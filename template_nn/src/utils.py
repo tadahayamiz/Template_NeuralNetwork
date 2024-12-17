@@ -107,7 +107,7 @@ def save_experiment(
         json.dump(data, f, sort_keys=True, indent=4)
     # plot progress
     plot_progress(
-        experiment_name, train_losses, test_losses, config["epochs"], base_dir=base_dir
+        experiment_name, train_losses, test_losses, config["num_epochs"], base_dir=base_dir
         )
     # save the model
     save_checkpoint(experiment_name, model, "final", base_dir=base_dir)
@@ -130,9 +130,9 @@ def save_checkpoint(experiment_name, model, epoch, base_dir="experiments"):
     torch.save(model.state_dict(), cpfile)
 
 
-def save_component_list(model, optimizer, criterion, device, scheduler=None):
+def get_component_list(model, optimizer, criterion, device, scheduler=None):
     """
-    save the components of the model
+    get the components of the model
     
     """
     components = {
