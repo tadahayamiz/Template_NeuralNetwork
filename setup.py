@@ -61,7 +61,7 @@ if package_name is None:
 # Find all Python files starting with "note_" and ending with ".py"
 note_files = []
 for f in os.listdir(os.path.join(os.path.dirname(__file__), package_name)):
-    if f.startswith('note_') and f.endswith('.py'):
+    if f.startswith('cli_') and f.endswith('.py'):
         note_files.append(os.path.join(os.path.dirname(__file__), package_name, f))
 
 # Parse the filenames and identify the latest file
@@ -80,7 +80,7 @@ if len(note_files) > 1:
 if latest_file:
     module_name = os.path.basename(latest_file).split('.')[0]  # Extract the module name without '.py'
 else:
-    raise FileNotFoundError("No valid 'note_' file found in the current directory.")
+    raise FileNotFoundError("No valid 'cli_' file found in the current directory.")
 
 
 # 3. Define the setup function
