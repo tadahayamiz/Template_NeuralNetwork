@@ -99,7 +99,7 @@ class Trainer:
                 # 予測
                 output = self.model(data)
                 # lossの計算
-                loss = self.loss_fn(output, label)
+                loss = self.criterion(output, label)
                 total_loss += loss.item() * len(data)
                 # accuracyの計算
                 predictions = torch.argmax(output, dim=1)
