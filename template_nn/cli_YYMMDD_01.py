@@ -66,7 +66,10 @@ def prepare_data():
     """
     from torchvision.datasets import CIFAR10
     full_train_set = CIFAR10(root=cfg["workdir"], train=True, download=True, transform=None)
-    train_set, test_set = dh.split_dataset(full_train_set, split_ratio=0.8, shuffle=True)
+    general_transform = dh.get_general_transforms()
+    train_set, test_set = dh.split_dataset(
+        full_train_set, split_ratio=0.8, transform=general_transform, shuffle=True
+        )
     train_loader = dh.prep_dataloader(
         train_set, cfg["batch_size"], shuffle=True, num_workers=cfg["num_workers"], pin_memory=True
         )
