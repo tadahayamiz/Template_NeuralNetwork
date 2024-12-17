@@ -33,7 +33,7 @@ parser.add_argument(
     )
 parser.add_argument('--note', type=str, help='short note for this running')
 parser.add_argument('--train', type=bool, default=True) # 学習ありか否か
-parser.add_argument('--num_epoch', type=int, default=5) # epoch
+parser.add_argument('--num_epochs', type=int, default=5) # epoch
 parser.add_argument('--batch_size', type=int, default=128) # batch size
 parser.add_argument('--lr', type=float, default=0.001) # learning rate
 parser.add_argument('--save_every_n_epochs', type=float, default=0.001) # save model every n epochs
@@ -118,8 +118,8 @@ def fit(model, train_loader, test_loader, criterion, optimizer, scheduler):
         exp_name='exp', device=cfg["device"], scheduler=scheduler
         )
     train_loss, test_loss, accuracies = trainer.train(
-        train_loader, test_loader, num_epochs=cfg["num_epoch"],
-        save_model_evry_n_epochs=cfg["save_every_n_epochs"]
+        train_loader, test_loader, num_epochs=cfg["num_epochs"],
+        save_model_every_n_epochs=cfg["save_every_n_epochs"]
         )
     return model, train_loss, test_loss, accuracies
 
