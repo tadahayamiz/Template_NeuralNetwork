@@ -149,6 +149,9 @@ def main():
         # 5. save config
         components = utils.save_component_list(model, optimizer, criterion, cfg["device"], scheduler)
         cfg.update(components)
+
+        print(cfg["device"])
+
         elapsed_time = utils.timer(start) # for time stamp
         cfg["elapsed_time"] = elapsed_time
     else:
