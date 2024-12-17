@@ -33,7 +33,7 @@ class Block(nn.Module):
 
         # 2nd convolution (3 x 3)
         self.conv2 = nn.Conv2d(
-            channel_out, channel_out, kernel_size=(3,3), stride=stride, padding=1, bias=False
+            channel_out, channel_out, kernel_size=(3,3), stride=1, padding=1, bias=False
             )
         self.bn2 = nn.BatchNorm2d(channel_out) # Batch normalization
 
@@ -41,7 +41,9 @@ class Block(nn.Module):
         self.shortcut = nn.Sequential()
         if stride != 1 or channel_in != channel_out:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(channel_in, channel_out, kernel_size=(1,1), stride=stride, bias=False),
+                nn.Conv2d(
+                    channel_in, channel_out, kernel_size=(1,1), stride=stride, padding=0, bias=False
+                    ),
                 nn.BatchNorm2d(channel_out)
             )
 
@@ -62,7 +64,7 @@ class Block(nn.Module):
         h = F.relu(h) # ReLU activation
         h = self.conv2(h) # Shape: (batch_size, C, H, W)
         h = self.bn2(h) # Batch normalization
-        h = h + shortcut # Skip connection
+        h += shortcut # Skip connection
         h = F.relu(h) # ReLU activation AFTER skip connection
         return h
 
@@ -82,7 +84,7 @@ class MyNet(nn.Module):
             3, 64, kernel_size=(7,7), stride=(2,2), padding=3, bias=False
             ) # 7 x 7 convolution, (B, 3, H, W) -> (B, 64, H/2, W/2)
         self.bn1 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True) # In-place ReLU activation for memory efficiency
         self.maxpool = nn.MaxPool2d(kernel_size=(3,3), stride=(2,2), padding=1)
         # (B, 64, H/2, W/2) -> (B, 64, H/4, W/4)
         
