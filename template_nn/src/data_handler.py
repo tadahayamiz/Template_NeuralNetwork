@@ -127,16 +127,41 @@ def split_dataset(
         np.random.shuffle(indices)
     train_indices, val_indices = indices[:split], indices[split:]
     train_dataset = torch.utils.data.Subset(full_dataset, train_indices)
-    if transform[0] is not None:
-        train_dataset.transform = transform[0]
-
-        print("DEBUG")
-
     val_dataset = torch.utils.data.Subset(full_dataset, val_indices)
-    if transform[1] is not None:
-        val_dataset.transform = transform[1]
+    # transformの適用
+    if transform[0]:
+        train_dataset = SubsetWrapper(train_dataset, transform[0])
+    if transform[1]:
+        val_dataset = SubsetWrapper(val_dataset, transform[1])
     return train_dataset, val_dataset
 
+
+class SubsetWrapper(Dataset):
+    """
+    Wrapper class for creating a subset of a given dataset.
+
+    Args:
+        dataset (torch.utils.data.Dataset): Original dataset.
+        indices (List[int]): List of indices to include in the subset.
+    """
+    def __init__(self, dataset, transform=None):
+        """
+        Args:
+            dataset (torch.utils.data.Dataset): 元のDataset
+            transform (callable, optional): 適用するtransform
+        """
+        self.dataset = dataset
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        image, label = self.dataset[idx]
+        if self.transform:
+            image = self.transform(image)
+        return image, label
+    
 
 def prep_dataloader(
     dataset: Dataset,
