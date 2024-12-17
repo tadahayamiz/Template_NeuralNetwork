@@ -24,9 +24,9 @@ class Block(nn.Module):
     def __init__(self, channel_in, channel_out, stride=1):
         super().__init__()
 
-        # 1st convolution (1 x 1)
+        # 1st convolution (3x3)
         self.conv1 = nn.Conv2d(
-            channel_in, channel_out, kernel_size=(1,1), stride=stride, padding=1, bias=False
+            channel_in, channel_out, kernel_size=3, stride=stride, padding=1, bias=False
             )
         # bias=False: Batch normalization layer is used after the convolutional layer
         self.bn1 = nn.BatchNorm2d(channel_out) # Batch normalization
