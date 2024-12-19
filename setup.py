@@ -95,7 +95,7 @@ setup(
     install_requires=install_requirements,
     entry_points={
         "console_scripts": [
-            f"{package_name}.main={package_name}.{module_name}:main",
+            f"{package_name}={package_name}.{module_name}:main",
         ]
     },
     classifiers=[

@@ -21,9 +21,10 @@ def fix_seed(seed:int=222, fix_gpu:bool=False):
     Fix random seed for reproducibility across Python, NumPy, and PyTorch.
 
     Args:
-        seed (int): Seed value for random number generators. Default is 42.
+        seed (int): Seed value for random number generators.
         fix_gpu (bool): If True, GPU-related randomness is also fixed. 
                         This may reduce performance but ensures reproducibility.
+                        Default is False.
 
     Returns:
         None
